@@ -5,6 +5,8 @@ import 'package:cesam_app/features/auth/presentation/pages/signup_page.dart';
 import 'package:cesam_app/features/home/presentation/pages/home_page.dart';
 import 'package:cesam_app/features/profile/presentation/pages/profile_page.dart';
 import 'package:cesam_app/features/auth/presentation/pages/startup_page.dart';
+import 'package:cesam_app/features/auth/presentation/pages/chatBot.dart';
+
 import 'package:cesam_app/Dashboard.dart';
 
 class AppRouter {
@@ -15,6 +17,7 @@ class AppRouter {
   static const String home = '/home';
   static const String profile = '/profile';
   static const String dashboard = '/dashboard';
+  static const String chatbot = '/chatbot';  
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -36,6 +39,8 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const ProfilePage());
       case dashboard:
         return MaterialPageRoute(builder: (_) => DashboardPage());
+      case chatbot:
+        return MaterialPageRoute(builder: (_) => const ChatbotScreen());
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

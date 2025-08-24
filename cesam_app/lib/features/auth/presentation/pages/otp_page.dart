@@ -87,7 +87,7 @@ class _OtpPageState extends State<OtpPage> {
 
         // Vérifier le rôle de l'utilisateur
         final role = result['role'] ?? 'etudiant'; // récupéré depuis le backend
-        if (role == 'admin') {
+        if (role == 'etudiant') {
           Navigator.pushNamedAndRemoveUntil(
             context,
             '/dashboard',
@@ -264,15 +264,15 @@ class _OtpPageState extends State<OtpPage> {
                             color: Colors.black,
                           ),
                         ),
-                        const SizedBox(height: 15),
-                        Text(
-                          'Email brut reçu: ${widget.email ?? "aucun"}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        // const SizedBox(height: 15),
+                        // Text(
+                        //   'Email brut reçu: ${widget.email ?? "aucun"}',
+                        //   style: const TextStyle(
+                        //     fontSize: 16,
+                        //     color: Colors.red,
+                        //     fontWeight: FontWeight.bold,
+                        //   ),
+                        // ),
                         Text(
                           'email: ${_getMaskedEmail()}',
                           style: const TextStyle(

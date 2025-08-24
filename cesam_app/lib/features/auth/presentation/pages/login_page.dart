@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../services/auth_services.dart';
-import 'package:pdfx/pdfx.dart';
-import 'package:flutter/gestures.dart';
+//import '../../services/auth_services.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -19,8 +17,11 @@ class _LoginPageState extends State<LoginPage> {
   bool isLoading = false;
   bool acceptPolicy = false; // Nouvelle variable pour la case à cocher
 
+
+  
+
   // Fonction pour gérer la connexion
-  Future<void> _handleLogin() async {
+ /*  Future<void> _handleLogin() async {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
       _showSnackBar('Veuillez remplir tous les champs', isError: true);
       return;
@@ -65,7 +66,7 @@ class _LoginPageState extends State<LoginPage> {
         isLoading = false;
       });
     }
-  }
+  } 
 
   // Fonction pour afficher les messages
   void _showSnackBar(String message, {bool isError = false}) {
@@ -76,11 +77,11 @@ class _LoginPageState extends State<LoginPage> {
         duration: const Duration(seconds: 3),
       ),
     );
-  }
+  }*/
 
   // Fonction pour ouvrir le PDF des politiques de confidentialité
 
-  void _openPrivacyPolicy() async {
+/*   void _openPrivacyPolicy() async {
     try {
       setState(() => isLoading = true);
 
@@ -108,7 +109,7 @@ class _LoginPageState extends State<LoginPage> {
         setState(() => isLoading = false);
       }
     }
-  }
+  } */
 
   @override
   void dispose() {
@@ -366,6 +367,20 @@ class _LoginPageState extends State<LoginPage> {
             ],
           ),
         ),
+      ),
+      // Bouton flottant pour le chatbot
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Navigation vers votre page de chatbot
+          Navigator.pushNamed(context, '/chatbot');
+        },
+        backgroundColor: Colors.white,
+        foregroundColor: Color(0xFF1F5AD2),
+        child: const Icon(
+          Icons.chat_bubble_outline,
+          size: 28,
+        ),
+        elevation: 8,
       ),
     );
   }

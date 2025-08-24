@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 class StartupPage extends StatelessWidget {
   const StartupPage({super.key});
 
@@ -73,6 +74,21 @@ class StartupPage extends StatelessWidget {
           ),
         ),
       ),
+      // Bouton flottant pour le chatbot
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Navigation vers votre page de chatbot
+          Navigator.pushNamed(context, '/chatbot');
+        },
+        backgroundColor: Colors.white,
+        foregroundColor: Color(0xFF1F5AD2),
+        child: const Icon(
+          Icons.chat_bubble_outline,
+          size: 28,
+        ),
+        elevation: 8,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
