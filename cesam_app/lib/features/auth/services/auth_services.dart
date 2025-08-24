@@ -51,28 +51,32 @@ class AuthService {
 
   // Inscription
   static Future<Map<String, dynamic>> register({
-    required String lastName,
-    required String firstName,
+    required String nom,
+    required String prenom,
     required String email,
-    required String username,
-    required String phone,
     required String password,
-    required String birthDate,
-    required String gender,
+    required String nationalite,
+    required String niveauEtudes,
+    required String domaineEtudes,
+    required String personneAPrevenir,
+    required String numeroTel,
+    required String role,
   }) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/users/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'lastName': lastName,
-          'firstName': firstName,
-          'email': email,
-          'username': username,
-          'phone': phone,
-          'password': password,
-          'birthDate': birthDate,
-          'gender': gender,
+          "nom": nom,
+          "prenom": prenom,
+          "email": email,
+          "mot_de_passe": password,
+          "nationalite": nationalite,
+          "niveau_etudes": niveauEtudes,
+          "domaine_etudes": domaineEtudes,
+          "personne_a_prevenir": personneAPrevenir,
+          "numero_tel":numeroTel,
+          "role": role,
         }),
       );
 
@@ -140,7 +144,31 @@ class AuthService {
     } catch (_) {}
     await _removeToken();
   }
+//reset Password:
+/**
+ * // RÉINITIALISER MOT DE PASSE - Confirmation
+  static Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/reset-password'),
+        headers: headers,
+        body: json.encode({
+          'email': email,
+          'otp': otp,
+          'newPassword': newPassword,
+        }),
+      );
 
+      return _handleResponse(response);
+    } catch (e) {
+      return _handleError(e);
+    }
+  }
+ */
   // Gestion du token en local
   static Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();

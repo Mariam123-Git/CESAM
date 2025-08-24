@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../services/auth_services.dart';
+import 'package:flutter/services.dart';
+import 'package:pdfx/pdfx.dart';
+import 'package:flutter/gestures.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -8,21 +12,219 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
-  final lastNameController = TextEditingController();
-  final firstNameController = TextEditingController();
+  final nomController = TextEditingController();
+  final prenomController = TextEditingController();
   final emailController = TextEditingController();
-  final usernameController = TextEditingController();
-  final phoneController = TextEditingController();
-  final passwordController = TextEditingController();
-  final confirmPasswordController = TextEditingController();
+  final motDePasseController = TextEditingController();
+  final nationaliteController = TextEditingController();
+  final domaineEtudesController = TextEditingController();
+  final personneAPrevenirController = TextEditingController();
+  final numeroTelController = TextEditingController();
 
-  String selectedMonth = 'April';
-  String selectedDay = '14';
-  String selectedYear = '2003';
-  String selectedGender = 'Male';
-
+  String? selectedNiveauEtudes;
+  String? selectedRole;
   bool obscurePassword = true;
-  bool obscureConfirmPassword = true;
+  bool isLoading = false;
+  bool acceptPolicy = false;
+
+  // Listes pour les dropdowns
+  final List<String> niveauxEtudes = [
+    'Baccalauréat',
+    'Licence',
+    'Master',
+    'Doctorat',
+    'BTS',
+    'DUT',
+    'Classes préparatoires',
+    'École d\'ingénieur',
+    'École de commerce',
+    'Autre',
+  ];
+
+  final List<String> roles = [
+    'Étudiant',
+    'Enseignant',
+    'Administrateur',
+    'Autre',
+  ];
+
+  // Fonction pour gérer l'inscription
+  Future<void> _handleSignup() async {
+    if (!_validateForm()) {
+      return;
+    }
+
+    if (!acceptPolicy) {
+      _showSnackBar(
+        'Veuillez accepter les politiques de confidentialité',
+        isError: true,
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final result = await AuthService.register(
+        nom: nomController.text.trim(),
+        prenom: prenomController.text.trim(),
+        email: emailController.text.trim(),
+        password: motDePasseController.text,
+        nationalite: nationaliteController.text.trim(),
+        niveauEtudes: selectedNiveauEtudes!,
+        domaineEtudes: domaineEtudesController.text.trim(),
+        personneAPrevenir: personneAPrevenirController.text.trim(),
+        numeroTel: numeroTelController.text.trim(),
+        role: selectedRole!,
+      );
+
+      if (result['success']) {
+        // Envoyer l'OTP après l'inscription réussie
+        await AuthService.sendOtp(emailController.text.trim());
+
+        // Rediriger vers la page OTP avec l'email
+        Navigator.pushNamed(
+          context,
+          '/otp',
+          arguments: {
+            'email': emailController.text.trim(),
+            'message': result['message'],
+            'fromSignup': true, // Pour indiquer que ça vient de l'inscription
+          },
+        );
+      } else {
+        _showSnackBar(result['message'], isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Erreur inattendue: $e', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _openLegalNotice() async {
+    try {
+      setState(() => isLoading = true);
+
+      // Charger le PDF
+      final byteData = await rootBundle.load('Mention_legales.pdf');
+      final pdfController = PdfController(
+        document: PdfDocument.openData(byteData.buffer.asUint8List()),
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(title: const Text('Mention L\'égales')),
+            body: PdfView(controller: pdfController),
+          ),
+        ),
+      );
+    } catch (e) {
+      _showSnackBar('Impossible d\'ouvrir le fichier PDF: $e', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  void _openPrivacyPolicy() async {
+    try {
+      setState(() => isLoading = true);
+
+      // Charger le PDF
+      final byteData = await rootBundle.load(
+        'Politique_de_confidentialite.pdf',
+      );
+
+      final pdfController = PdfController(
+        document: PdfDocument.openData(byteData.buffer.asUint8List()),
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(title: const Text('Politique de confidentialité')),
+            body: PdfView(controller: pdfController),
+          ),
+        ),
+      );
+    } catch (e) {
+      _showSnackBar('Impossible d\'ouvrir le fichier PDF: $e', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  // Fonction pour afficher les messages
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  bool _validateForm() {
+    if (nomController.text.isEmpty ||
+        prenomController.text.isEmpty ||
+        emailController.text.isEmpty ||
+        motDePasseController.text.isEmpty ||
+        nationaliteController.text.isEmpty ||
+        selectedNiveauEtudes == null ||
+        domaineEtudesController.text.isEmpty ||
+        selectedRole == null) {
+      _showSnackBar(
+        'Veuillez remplir tous les champs obligatoires',
+        isError: true,
+      );
+      return false;
+    }
+
+    // Validation de l'email
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    if (!emailRegex.hasMatch(emailController.text.trim())) {
+      _showSnackBar('Veuillez entrer un email valide', isError: true);
+      return false;
+    }
+
+    // Validation du mot de passe
+    if (motDePasseController.text.length < 6) {
+      _showSnackBar(
+        'Le mot de passe doit contenir au moins 6 caractères',
+        isError: true,
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  @override
+  void dispose() {
+    nomController.dispose();
+    prenomController.dispose();
+    emailController.dispose();
+    motDePasseController.dispose();
+    nationaliteController.dispose();
+    domaineEtudesController.dispose();
+    personneAPrevenirController.dispose();
+    numeroTelController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +285,7 @@ class _SignupPageState extends State<SignupPage> {
                           const SizedBox(height: 10),
                           const Center(
                             child: Text(
-                              'Sign Up',
+                              'Inscription',
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -93,7 +295,7 @@ class _SignupPageState extends State<SignupPage> {
                           ),
                           const SizedBox(height: 30),
 
-                          // Last Name and First Name
+                          // Nom et Prénom
                           Row(
                             children: [
                               Expanded(
@@ -101,7 +303,7 @@ class _SignupPageState extends State<SignupPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      'Last Name',
+                                      'Nom *',
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
@@ -109,22 +311,26 @@ class _SignupPageState extends State<SignupPage> {
                                     ),
                                     const SizedBox(height: 8),
                                     TextField(
-                                      controller: lastNameController,
+                                      controller: nomController,
+                                      enabled: !isLoading,
                                       decoration: InputDecoration(
-                                        hintText: 'Cueva',
+                                        hintText: 'Dupont',
                                         hintStyle: const TextStyle(
                                           color: Colors.grey,
                                         ),
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                           borderSide: const BorderSide(
                                             color: Colors.grey,
                                           ),
                                         ),
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 12,
-                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 12,
+                                            ),
                                       ),
                                     ),
                                   ],
@@ -136,7 +342,7 @@ class _SignupPageState extends State<SignupPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      'First Name',
+                                      'Prénom *',
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
@@ -144,234 +350,38 @@ class _SignupPageState extends State<SignupPage> {
                                     ),
                                     const SizedBox(height: 8),
                                     TextField(
-                                      controller: firstNameController,
+                                      controller: prenomController,
+                                      enabled: !isLoading,
                                       decoration: InputDecoration(
-                                        hintText: 'John Kenneth',
+                                        hintText: 'Jean',
                                         hintStyle: const TextStyle(
                                           color: Colors.grey,
                                         ),
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                           borderSide: const BorderSide(
                                             color: Colors.grey,
                                           ),
                                         ),
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 12,
-                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 12,
+                                            ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Birth Date
-                          const Text(
-                            'Birth Date',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              // Month
-                              Expanded(
-                                flex: 2,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Month',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    DropdownButtonFormField<String>(
-                                      value: selectedMonth,
-                                      decoration: InputDecoration(
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 8,
-                                        ),
-                                      ),
-                                      items: [
-                                        'January',
-                                        'February',
-                                        'March',
-                                        'April',
-                                        'May',
-                                        'June',
-                                        'July',
-                                        'August',
-                                        'September',
-                                        'October',
-                                        'November',
-                                        'December',
-                                      ]
-                                          .map(
-                                            (month) => DropdownMenuItem(
-                                              value: month,
-                                              child: Text(
-                                                month,
-                                                style: const TextStyle(fontSize: 12),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          )
-                                          .toList(),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          selectedMonth = value!;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Day
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Day',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    DropdownButtonFormField<String>(
-                                      value: selectedDay,
-                                      decoration: InputDecoration(
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 8,
-                                        ),
-                                      ),
-                                      items: List.generate(31, (index) => (index + 1).toString())
-                                          .map(
-                                            (day) => DropdownMenuItem(
-                                              value: day,
-                                              child: Text(
-                                                day,
-                                                style: const TextStyle(fontSize: 12),
-                                              ),
-                                            ),
-                                          )
-                                          .toList(),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          selectedDay = value!;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Year
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Year',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    DropdownButtonFormField<String>(
-                                      value: selectedYear,
-                                      decoration: InputDecoration(
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 8,
-                                        ),
-                                      ),
-                                      items: List.generate(50, (index) => (2025 - index).toString())
-                                          .map(
-                                            (year) => DropdownMenuItem(
-                                              value: year,
-                                              child: Text(
-                                                year,
-                                                style: const TextStyle(fontSize: 12),
-                                              ),
-                                            ),
-                                          )
-                                          .toList(),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          selectedYear = value!;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Gender
-                          const Text(
-                            'Sex',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
-                            value: selectedGender,
-                            decoration: InputDecoration(
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 12,
-                              ),
-                            ),
-                            items: ['Male', 'Female', 'Other']
-                                .map(
-                                  (gender) => DropdownMenuItem(
-                                    value: gender,
-                                    child: Text(gender),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedGender = value!;
-                              });
-                            },
                           ),
                           const SizedBox(height: 20),
 
                           // Email
                           const Text(
-                            'Email',
+                            'Email *',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -380,8 +390,10 @@ class _SignupPageState extends State<SignupPage> {
                           const SizedBox(height: 8),
                           TextField(
                             controller: emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            enabled: !isLoading,
                             decoration: InputDecoration(
-                              hintText: '202320085@bulsu.edu.ph',
+                              hintText: 'jean.dupont@email.com',
                               hintStyle: const TextStyle(color: Colors.grey),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
@@ -397,9 +409,9 @@ class _SignupPageState extends State<SignupPage> {
                           ),
                           const SizedBox(height: 20),
 
-                          // Username
+                          // Mot de passe
                           const Text(
-                            'Username',
+                            'Mot de passe *',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -407,64 +419,9 @@ class _SignupPageState extends State<SignupPage> {
                           ),
                           const SizedBox(height: 8),
                           TextField(
-                            controller: usernameController,
-                            decoration: InputDecoration(
-                              hintText: 'mihas012646891',
-                              hintStyle: const TextStyle(color: Colors.grey),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Phone Number
-                          const Text(
-                            'Phone No.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: phoneController,
-                            decoration: InputDecoration(
-                              hintText: '+63  991-710-2178',
-                              hintStyle: const TextStyle(color: Colors.grey),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Password
-                          const Text(
-                            'Password',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: passwordController,
+                            controller: motDePasseController,
                             obscureText: obscurePassword,
+                            enabled: !isLoading,
                             decoration: InputDecoration(
                               hintText: '••••••••••••••',
                               hintStyle: const TextStyle(color: Colors.grey),
@@ -485,19 +442,21 @@ class _SignupPageState extends State<SignupPage> {
                                       : Icons.visibility,
                                   color: Colors.grey,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    obscurePassword = !obscurePassword;
-                                  });
-                                },
+                                onPressed: isLoading
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          obscurePassword = !obscurePassword;
+                                        });
+                                      },
                               ),
                             ),
                           ),
                           const SizedBox(height: 20),
 
-                          // Confirm Password
+                          // Nationalité
                           const Text(
-                            'Confirm Password',
+                            'Nationalité *',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -505,10 +464,10 @@ class _SignupPageState extends State<SignupPage> {
                           ),
                           const SizedBox(height: 8),
                           TextField(
-                            controller: confirmPasswordController,
-                            obscureText: obscureConfirmPassword,
+                            controller: nationaliteController,
+                            enabled: !isLoading,
                             decoration: InputDecoration(
-                              hintText: '••••••••••••••',
+                              hintText: 'Française',
                               hintStyle: const TextStyle(color: Colors.grey),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
@@ -520,22 +479,233 @@ class _SignupPageState extends State<SignupPage> {
                                 horizontal: 16,
                                 vertical: 12,
                               ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  obscureConfirmPassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Niveau d'études (Dropdown)
+                          const Text(
+                            'Niveau d\'études *',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: selectedNiveauEtudes,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                            ),
+                            hint: const Text('Sélectionnez votre niveau'),
+                            items: niveauxEtudes
+                                .map(
+                                  (niveau) => DropdownMenuItem(
+                                    value: niveau,
+                                    child: Text(niveau),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: isLoading
+                                ? null
+                                : (value) {
+                                    setState(() {
+                                      selectedNiveauEtudes = value;
+                                    });
+                                  },
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Domaine d'études
+                          const Text(
+                            'Domaine d\'études *',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: domaineEtudesController,
+                            enabled: !isLoading,
+                            decoration: InputDecoration(
+                              hintText: 'Informatique, Médecine, Droit...',
+                              hintStyle: const TextStyle(color: Colors.grey),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
                                   color: Colors.grey,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    obscureConfirmPassword = !obscureConfirmPassword;
-                                  });
-                                },
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 20),
+
+                          // Personne à prévenir
+                          const Text(
+                            'Personne à prévenir',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: personneAPrevenirController,
+                            enabled: !isLoading,
+                            decoration: InputDecoration(
+                              hintText: 'Nom et prénom',
+                              hintStyle: const TextStyle(color: Colors.grey),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Numéro de téléphone
+                          const Text(
+                            'Numéro de téléphone',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: numeroTelController,
+                            keyboardType: TextInputType.phone,
+                            enabled: !isLoading,
+                            decoration: InputDecoration(
+                              hintText: '+33 6 12 34 56 78',
+                              hintStyle: const TextStyle(color: Colors.grey),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Rôle (Dropdown)
+                          const Text(
+                            'Rôle *',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: selectedRole,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                            ),
+                            hint: const Text('Sélectionnez votre rôle'),
+                            items: roles
+                                .map(
+                                  (role) => DropdownMenuItem(
+                                    value: role,
+                                    child: Text(role),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: isLoading
+                                ? null
+                                : (value) {
+                                    setState(() {
+                                      selectedRole = value;
+                                    });
+                                  },
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Politique de confidentialité checkbox
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: acceptPolicy,
+                                onChanged: isLoading
+                                    ? null
+                                    : (val) {
+                                        setState(() {
+                                          acceptPolicy = val ?? false;
+                                        });
+                                      },
+                                activeColor: const Color(0xFF1F5AD2),
+                              ),
+                              Expanded(
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black,
+                                    ),
+                                    children: [
+                                      const TextSpan(
+                                        text: 'Vous acceptez les ',
+                                      ),
+                                      TextSpan(
+                                        text: 'mentions légales',
+                                        style: const TextStyle(
+                                          color: Color(0xFF1F5AD2),
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                        recognizer: TapGestureRecognizer()
+                                          ..onTap =
+                                              _openLegalNotice, // 👈 fonction pour ouvrir Mentions légales
+                                      ),
+                                      const TextSpan(text: ' et les '),
+                                      TextSpan(
+                                        text: 'politiques de confidentialité',
+                                        style: const TextStyle(
+                                          color: Color(0xFF1F5AD2),
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                        recognizer: TapGestureRecognizer()
+                                          ..onTap =
+                                              _openPrivacyPolicy, // 👈 fonction pour ouvrir Politique
+                                      ),
+                                      const TextSpan(
+                                        text:
+                                            ' de l\'application en vous inscrivant.',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 30),
 
                           // Submit button
                           SizedBox(
@@ -551,14 +721,26 @@ class _SignupPageState extends State<SignupPage> {
                                   vertical: 16,
                                 ),
                               ),
-                              onPressed: () => Navigator.pushNamed(context, '/otp'),
-                              child: const Text(
-                                'Submit',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              onPressed: isLoading ? null : _handleSignup,
+                              child: isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                      ),
+                                    )
+                                  : const Text(
+                                      'S\'inscrire',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 20),

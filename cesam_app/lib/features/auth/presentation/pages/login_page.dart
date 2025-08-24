@@ -1,6 +1,8 @@
-// pages/login_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/auth_services.dart';
+import 'package:pdfx/pdfx.dart';
+import 'package:flutter/gestures.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,6 +17,7 @@ class _LoginPageState extends State<LoginPage> {
   bool rememberMe = false;
   bool obscurePassword = true;
   bool isLoading = false;
+  bool acceptPolicy = false; // Nouvelle variable pour la case à cocher
 
   // Fonction pour gérer la connexion
   Future<void> _handleLogin() async {
@@ -23,19 +26,26 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    if (!acceptPolicy) {
+      _showSnackBar(
+        'Veuillez accepter les politiques de confidentialité',
+        isError: true,
+      );
+      return;
+    }
+
     setState(() {
       isLoading = true;
     });
 
     try {
-      
       final result = await AuthService.login(
         emailController.text.trim(),
         passwordController.text,
       );
       if (result['success']) {
         // Envoyer l'OTP avant la redirection
-        await AuthService.sendOtp(emailController.text.trim());
+        //await AuthService.sendOtp(emailController.text.trim());
         // Succès - rediriger vers la page OTP avec l'email
         Navigator.pushNamed(
           context,
@@ -66,6 +76,38 @@ class _LoginPageState extends State<LoginPage> {
         duration: const Duration(seconds: 3),
       ),
     );
+  }
+
+  // Fonction pour ouvrir le PDF des politiques de confidentialité
+
+  void _openPrivacyPolicy() async {
+    try {
+      setState(() => isLoading = true);
+
+      // Charger le PDF
+      final byteData = await rootBundle.load(
+        'assets/politique_confidentialite.pdf',
+      );
+      final pdfController = PdfController(
+        document: PdfDocument.openData(byteData.buffer.asUint8List()),
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(title: const Text('Politique de confidentialité')),
+            body: PdfView(controller: pdfController),
+          ),
+        ),
+      );
+    } catch (e) {
+      _showSnackBar('Impossible d\'ouvrir le fichier PDF: $e', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
   }
 
   @override
@@ -238,9 +280,8 @@ class _LoginPageState extends State<LoginPage> {
                                 style: TextStyle(fontSize: 14),
                               ),
                             ],
-                          ),
+                          ), // Politique de confidentialité checkbox
                           const SizedBox(height: 30),
-
                           // Login button
                           SizedBox(
                             width: double.infinity,
@@ -255,26 +296,15 @@ class _LoginPageState extends State<LoginPage> {
                                   vertical: 16,
                                 ),
                               ),
-                              onPressed: isLoading ? null : _handleLogin,
-                              child: isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Log In',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
+                              onPressed: () =>
+                                  Navigator.pushNamed(context, '/home'),
+                              child: const Text(
+                                'Log In',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 20),
