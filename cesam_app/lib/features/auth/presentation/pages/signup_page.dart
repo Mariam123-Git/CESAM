@@ -62,6 +62,15 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
+        if (roles == 'Administrateur') {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/dashboard',
+            (route) => false,
+          );
+        } else {
+          Navigator.pushNamedAndRemoveUntil(context, '/opt', (route) => false);
+        }
     setState(() {
       isLoading = true;
     });

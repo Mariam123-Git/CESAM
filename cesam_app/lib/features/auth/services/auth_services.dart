@@ -145,30 +145,42 @@ class AuthService {
     await _removeToken();
   }
 //reset Password:
-/**
- * // RÉINITIALISER MOT DE PASSE - Confirmation
-  static Future<Map<String, dynamic>> resetPassword({
-    required String email,
-    required String otp,
-    required String newPassword,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/reset-password'),
-        headers: headers,
-        body: json.encode({
-          'email': email,
-          'otp': otp,
-          'newPassword': newPassword,
-        }),
-      );
 
-      return _handleResponse(response);
-    } catch (e) {
-      return _handleError(e);
+ // RÉINITIALISER MOT DE PASSE - Confirmation
+static Future<Map<String, dynamic>> resetPassword({
+  required String email,
+  required String otp,
+  required String newPassword,
+}) async {
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/users/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'otp': otp,
+        'newPassword': newPassword,
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': data};
+    } else {
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Erreur lors de la réinitialisation',
+      };
     }
+  } catch (e) {
+    return {
+      'success': false,
+      'message': 'Erreur serveur: $e',
+    };
   }
- */
+}
+
   // Gestion du token en local
   static Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -189,6 +201,7 @@ class AuthService {
     final token = await getToken();
     return token != null;
   }
+
 
   // Envoi de l'OTP par email
   // Dans AuthService
@@ -226,10 +239,15 @@ class AuthService {
     }
   }
 
+  
+
   // Dans auth_services.dart
   static Future<void> saveToken(String token) async {
     // Changé de _saveToken à saveToken
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('access_token', token);
   }
+
+
+  
 }

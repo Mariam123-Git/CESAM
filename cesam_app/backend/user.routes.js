@@ -3,6 +3,7 @@ const router = express.Router();
 const userController = require('./user.controller');// j'ai modifié le chemin pour les tests   
 const authMiddleware = require('./auth.middleware');
 const nodemailer = require('nodemailer');
+const bcrypt = require('bcrypt');
 const pool = require('./db');
 
 
@@ -144,7 +145,31 @@ router.post('/verify-opt', async (req, res) => {
   }
 });
 
+// Route POST pour réinitialiser le mot de passe
+router.post('/reset-password', async (req, res) => {
+  const { email, newPassword } = req.body;
 
+  if (!email || !newPassword) {
+    return res.status(400).json({ success: false, message: 'Email et nouveau mot de passe requis' });
+  }
+
+  try {
+    // Hacher le mot de passe avant de l’enregistrer
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Mettre à jour le mot de passe dans la DB
+    await pool.query(
+      'UPDATE utilisateur SET mot_de_passe = $1 WHERE email = $2',
+      [hashedPassword, email]
+    );
+
+    res.status(200).json({ success: true, message: 'Mot de passe réinitialisé avec succès' });
+
+  } catch (error) {
+    console.error('Erreur reset password:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur lors de la réinitialisation' });
+  }
+});
 /* Dans votre fichier de routes users
 router.get('/protected-route', authenticateToken, (req, res) => {
     res.json({

@@ -82,10 +82,7 @@ class StartupPage extends StatelessWidget {
         },
         backgroundColor: Colors.white,
         foregroundColor: Color(0xFF1F5AD2),
-        child: const Icon(
-          Icons.chat_bubble_outline,
-          size: 28,
-        ),
+        child: const Icon(Icons.chat_bubble_outline, size: 28),
         elevation: 8,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

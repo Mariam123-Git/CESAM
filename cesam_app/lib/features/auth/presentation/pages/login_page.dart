@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-//import '../../services/auth_services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/auth_services.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,23 +16,51 @@ class _LoginPageState extends State<LoginPage> {
   bool rememberMe = false;
   bool obscurePassword = true;
   bool isLoading = false;
-  bool acceptPolicy = false; // Nouvelle variable pour la case à cocher
+  bool acceptPolicy = false;
+  late SharedPreferences _prefs;
 
+  @override
+  void initState() {
+    super.initState();
+    _initSharedPreferences();
+  }
 
-  
+  // Initialiser SharedPreferences et charger les credentials
+  Future<void> _initSharedPreferences() async {
+    _prefs = await SharedPreferences.getInstance();
+    _loadSavedCredentials();
+  }
+
+  // Charger les informations sauvegardées
+  Future<void> _loadSavedCredentials() async {
+    try {
+      final savedEmail = _prefs.getString('saved_email') ?? '';
+      final shouldRemember = _prefs.getBool('remember_me') ?? false;
+
+      setState(() {
+        if (savedEmail.isNotEmpty) emailController.text = savedEmail;
+        rememberMe = shouldRemember;
+      });
+    } catch (e) {
+      print('Erreur lors du chargement des credentials: $e');
+    }
+  }
+
+  // Sauvegarder les informations de connexion
+  Future<void> _saveCredentials() async {
+    if (rememberMe) {
+      await _prefs.setString('saved_email', emailController.text.trim());
+      await _prefs.setBool('remember_me', true);
+    } else {
+      await _prefs.remove('saved_email');
+      await _prefs.setBool('remember_me', false);
+    }
+  }
 
   // Fonction pour gérer la connexion
- /*  Future<void> _handleLogin() async {
+  Future<void> _handleLogin() async {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
       _showSnackBar('Veuillez remplir tous les champs', isError: true);
-      return;
-    }
-
-    if (!acceptPolicy) {
-      _showSnackBar(
-        'Veuillez accepter les politiques de confidentialité',
-        isError: true,
-      );
       return;
     }
 
@@ -44,13 +73,16 @@ class _LoginPageState extends State<LoginPage> {
         emailController.text.trim(),
         passwordController.text,
       );
+      
       if (result['success']) {
-        // Envoyer l'OTP avant la redirection
-        //await AuthService.sendOtp(emailController.text.trim());
-        // Succès - rediriger vers la page OTP avec l'email
+        // Sauvegarder les credentials si "Remember me" est coché
+        await _saveCredentials();
+        
+        _showSnackBar('Connexion réussie !');
+        
         Navigator.pushNamed(
           context,
-          '/otp',
+          '/home',
           arguments: {
             'email': emailController.text.trim(),
             'message': result['message'],
@@ -66,7 +98,7 @@ class _LoginPageState extends State<LoginPage> {
         isLoading = false;
       });
     }
-  } 
+  }
 
   // Fonction pour afficher les messages
   void _showSnackBar(String message, {bool isError = false}) {
@@ -77,39 +109,7 @@ class _LoginPageState extends State<LoginPage> {
         duration: const Duration(seconds: 3),
       ),
     );
-  }*/
-
-  // Fonction pour ouvrir le PDF des politiques de confidentialité
-
-/*   void _openPrivacyPolicy() async {
-    try {
-      setState(() => isLoading = true);
-
-      // Charger le PDF
-      final byteData = await rootBundle.load(
-        'assets/politique_confidentialite.pdf',
-      );
-      final pdfController = PdfController(
-        document: PdfDocument.openData(byteData.buffer.asUint8List()),
-      );
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => Scaffold(
-            appBar: AppBar(title: const Text('Politique de confidentialité')),
-            body: PdfView(controller: pdfController),
-          ),
-        ),
-      );
-    } catch (e) {
-      _showSnackBar('Impossible d\'ouvrir le fichier PDF: $e', isError: true);
-    } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
-    }
-  } */
+  }
 
   @override
   void dispose() {
@@ -269,10 +269,17 @@ class _LoginPageState extends State<LoginPage> {
                                 value: rememberMe,
                                 onChanged: isLoading
                                     ? null
-                                    : (val) {
+                                    : (val) async {
                                         setState(() {
                                           rememberMe = val ?? false;
                                         });
+                                        // Sauvegarder immédiatement le choix
+                                        await _prefs.setBool('remember_me', val ?? false);
+                                        
+                                        // Si on décoche, supprimer l'email sauvegardé
+                                        if (!(val ?? false)) {
+                                          await _prefs.remove('saved_email');
+                                        }
                                       },
                                 activeColor: const Color(0xFF1F5AD2),
                               ),
@@ -281,8 +288,9 @@ class _LoginPageState extends State<LoginPage> {
                                 style: TextStyle(fontSize: 14),
                               ),
                             ],
-                          ), // Politique de confidentialité checkbox
+                          ),
                           const SizedBox(height: 30),
+                          
                           // Login button
                           SizedBox(
                             width: double.infinity,
@@ -297,15 +305,23 @@ class _LoginPageState extends State<LoginPage> {
                                   vertical: 16,
                                 ),
                               ),
-                              onPressed: () =>
-                                  Navigator.pushNamed(context, '/home'),
-                              child: const Text(
-                                'Log In',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              onPressed: isLoading ? null : _handleLogin,
+                              child: isLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Log In',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 20),
@@ -316,7 +332,10 @@ class _LoginPageState extends State<LoginPage> {
                               onPressed: isLoading
                                   ? null
                                   : () {
-                                      // Implémenter la récupération de mot de passe
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/forgot_password',
+                                      );
                                     },
                               child: const Text(
                                 'Forgot password?',
@@ -371,15 +390,11 @@ class _LoginPageState extends State<LoginPage> {
       // Bouton flottant pour le chatbot
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Navigation vers votre page de chatbot
           Navigator.pushNamed(context, '/chatbot');
         },
         backgroundColor: Colors.white,
-        foregroundColor: Color(0xFF1F5AD2),
-        child: const Icon(
-          Icons.chat_bubble_outline,
-          size: 28,
-        ),
+        foregroundColor: const Color(0xFF1F5AD2),
+        child: const Icon(Icons.chat_bubble_outline, size: 28),
         elevation: 8,
       ),
     );

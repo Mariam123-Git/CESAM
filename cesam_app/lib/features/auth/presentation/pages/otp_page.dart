@@ -87,7 +87,7 @@ class _OtpPageState extends State<OtpPage> {
 
         // Vérifier le rôle de l'utilisateur
         final role = result['role'] ?? 'etudiant'; // récupéré depuis le backend
-        if (role == 'etudiant') {
+        if (role == 'Administrateur') {
           Navigator.pushNamedAndRemoveUntil(
             context,
             '/dashboard',
