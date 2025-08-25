@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'package:collection/collection.dart'; // Pour firstWhereOrNull
+import 'package:diacritic/diacritic.dart';
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
 
@@ -9,38 +10,57 @@ class ChatbotScreen extends StatefulWidget {
 
 class _ChatbotScreenState extends State<ChatbotScreen> {
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final List<Map<String, String>> _messages = [];
 
-  // Base FAQ CESAM (questions -> réponses)
-  final Map<String, String> faq = {
-    "à propos": "🌍 La CESAM est une organisation apolitique créée en 1981 à Rabat. "
-        "Elle regroupe plus de 70 000 étudiants africains et organise des activités culturelles, sportives et académiques.",
-    "pourquoi application": "🎯 L'application CESAM facilite l’accès à l’information, offre un portail de support et renforce la communication.",
-    "connexion": "🔐 Vérifiez vos identifiants. Cliquez sur « Mot de passe oublié » si nécessaire. "
-        "Sinon, contactez le support utilisateur.",
-    "email confirmation": "📩 Vérifiez dans Spam/Indésirables et l'adresse email saisie. "
-        "Contactez le support si le problème persiste.",
-    "changer mot de passe": "Allez dans Paramètres → Sécurité → Modifier le mot de passe.",
-    "créer compte": "Ouvrez l’application → cliquez sur « Créer un compte » → remplissez les champs → validez.",
-    "supprimer compte": "⚠ Allez dans Paramètres → Compte → Supprimer mon compte. Action irréversible.",
-    "modifier infos": "Allez dans Profil → Modifiez mes informations → enregistrez les changements.",
-    "application lente": "⚙ Fermez et relancez l’app. Vérifiez s’il y a une mise à jour. "
-        "Sinon, contactez le support avec détails (téléphone, version).",
-    "bug": "📡 Merci de signaler le problème via le formulaire ou par email, avec une capture d’écran si possible.",
-    "qui peut utiliser": "❓ L’app est réservée aux membres CESAM : élèves, étudiants ou stagiaires africains au Maroc.",
-    "données sécurisées": "🔒 Oui. La CESAM respecte une politique stricte de confidentialité conforme aux lois marocaines.",
-    "support": "📬 Contactez le support : cesamapplication@gmail.com",
+  // FAQ améliorée (plusieurs mots-clés possibles)
+  final Map<List<String>, String> faq = {
+    ["à propos", "apropos", "presentation"]: 
+      "🌍 La CESAM est une organisation apolitique créée en 1981 à Rabat. "
+      "Elle regroupe plus de 70 000 étudiants africains et organise des activités culturelles, sportives et académiques.",
+    ["pourquoi application", "objectif", "utilité"]: 
+      "🎯 L'application CESAM facilite l’accès à l’information, offre un portail de support et renforce la communication.",
+    ["connexion", "login"]: 
+      "🔐 Vérifiez vos identifiants. Cliquez sur « Mot de passe oublié » si nécessaire. "
+      "Sinon, contactez le support utilisateur.",
+    ["email confirmation", "mail", "activation"]: 
+      "📩 Vérifiez dans Spam/Indésirables et l'adresse email saisie. "
+      "Contactez le support si le problème persiste.",
+    ["changer mot de passe", "reset", "password"]: 
+      "Allez dans Paramètres → Sécurité → Modifier le mot de passe.",
+    ["créer compte", "inscription", "register"]: 
+      "Ouvrez l’application → cliquez sur « Créer un compte » → remplissez les champs → validez.",
+    ["supprimer compte", "delete"]: 
+      "⚠ Allez dans Paramètres → Compte → Supprimer mon compte. Action irréversible.",
+    ["modifier infos", "profil", "update"]: 
+      "Allez dans Profil → Modifiez mes informations → enregistrez les changements.",
+    ["application lente", "lag", "lent"]: 
+      "⚙ Fermez et relancez l’app. Vérifiez s’il y a une mise à jour. "
+      "Sinon, contactez le support avec détails (téléphone, version).",
+    ["bug", "erreur", "crash"]: 
+      "📡 Merci de signaler le problème via le formulaire ou par email, avec une capture d’écran si possible.",
+    ["qui peut utiliser", "utilisateurs", "membres"]: 
+      "❓ L’app est réservée aux membres CESAM : élèves, étudiants ou stagiaires africains au Maroc.",
+    ["données sécurisées", "sécurité", "confidentialité"]: 
+      "🔒 Oui. La CESAM respecte une politique stricte de confidentialité conforme aux lois marocaines.",
+    ["support", "aide", "contact"]: 
+      "📬 Contactez le support : cesamapplication@gmail.com",
   };
 
-  // Fonction pour trouver une réponse basée sur mots-clés
+  // Normalisation du texte (minuscule + sans accents)
+  String _normalize(String text) {
+    return removeDiacritics(text.toLowerCase().trim());
+  }
+
+  // Trouver une réponse
   String _getResponse(String userInput) {
-    userInput = userInput.toLowerCase();
-    for (var entry in faq.entries) {
-      if (userInput.contains(entry.key)) {
-        return entry.value;
-      }
-    }
-    return "🤔 Désolé, je n’ai pas trouvé de réponse. Contactez le support : cesamapplication@gmail.com";
+    String normalizedInput = _normalize(userInput);
+
+    final entry = faq.entries.firstWhereOrNull((element) {
+      return element.key.any((keyword) => normalizedInput.contains(_normalize(keyword)));
+    });
+
+    return entry?.value ?? "🤔 Désolé, je n’ai pas trouvé de réponse. Contactez le support : cesamapplication@gmail.com";
   }
 
   void _sendMessage() {
@@ -53,6 +73,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
 
     _controller.clear();
+
+    // Scroll automatique vers le bas
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   @override
@@ -66,6 +95,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         children: [
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(10),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
@@ -78,10 +108,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isUser ? Colors.blue[100] : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
+                      color: isUser ? Colors.blue[200] : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Text(msg["text"] ?? ""),
+                    child: Text(msg["text"] ?? "",
+                        style: TextStyle(
+                          color: isUser ? Colors.black : Colors.black87,
+                          fontWeight: FontWeight.w500,
+                        )),
                   ),
                 );
               },
