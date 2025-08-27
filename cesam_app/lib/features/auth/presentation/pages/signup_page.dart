@@ -62,15 +62,6 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
-    if (roles == 'Administrateur') {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/dashboard',
-        (route) => false,
-      );
-    } else {
-      Navigator.pushNamedAndRemoveUntil(context, '/otp', (route) => false);
-    }
     setState(() {
       isLoading = true;
     });
@@ -89,25 +80,35 @@ class _SignupPageState extends State<SignupPage> {
         role: selectedRole!,
       );
 
+      if (!mounted) return;
+
       if (result['success']) {
         // Envoyer l'OTP après l'inscription réussie
-        await AuthService.sendOtp(emailController.text.trim());
-
-        // Rediriger vers la page OTP avec l'email
-        Navigator.pushNamed(
-          context,
-          '/otp',
-          arguments: {
-            'email': emailController.text.trim(),
-            'message': result['message'],
-            'fromSignup': true, // Pour indiquer que ça vient de l'inscription
-          },
-        );
+        final otpResult = await AuthService.sendOtp(emailController.text.trim());
+        
+        if (!mounted) return;
+        
+        if (otpResult['success']) {
+          // Rediriger vers la page OTP avec l'email
+          Navigator.pushNamed(
+            context,
+            '/otp',
+            arguments: {
+              'email': emailController.text.trim(),
+              'message': result['message'],
+              'fromSignup': true,
+            },
+          );
+        } else {
+          _showSnackBar(otpResult['message'], isError: true);
+        }
       } else {
         _showSnackBar(result['message'], isError: true);
       }
     } catch (e) {
-      _showSnackBar('Erreur inattendue: $e', isError: true);
+      if (mounted) {
+        _showSnackBar('Erreur inattendue: $e', isError: true);
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -122,22 +123,26 @@ class _SignupPageState extends State<SignupPage> {
       setState(() => isLoading = true);
 
       // Charger le PDF
-      final byteData = await rootBundle.load('Mention_legales.pdf');
+      final byteData = await rootBundle.load('assets/Mention_legales.pdf');
       final pdfController = PdfController(
         document: PdfDocument.openData(byteData.buffer.asUint8List()),
       );
 
+      if (!mounted) return;
+      
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => Scaffold(
-            appBar: AppBar(title: const Text('Mention L\'égales')),
+            appBar: AppBar(title: const Text('Mentions Légales')),
             body: PdfView(controller: pdfController),
           ),
         ),
       );
     } catch (e) {
-      _showSnackBar('Impossible d\'ouvrir le fichier PDF: $e', isError: true);
+      if (mounted) {
+        _showSnackBar('Impossible d\'ouvrir le fichier PDF: $e', isError: true);
+      }
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
@@ -151,13 +156,15 @@ class _SignupPageState extends State<SignupPage> {
 
       // Charger le PDF
       final byteData = await rootBundle.load(
-        'Politique_de_confidentialite.pdf',
+        'assets/Politique_de_confidentialite.pdf',
       );
 
       final pdfController = PdfController(
         document: PdfDocument.openData(byteData.buffer.asUint8List()),
       );
 
+      if (!mounted) return;
+      
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -168,7 +175,9 @@ class _SignupPageState extends State<SignupPage> {
         ),
       );
     } catch (e) {
-      _showSnackBar('Impossible d\'ouvrir le fichier PDF: $e', isError: true);
+      if (mounted) {
+        _showSnackBar('Impossible d\'ouvrir le fichier PDF: $e', isError: true);
+      }
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
@@ -178,6 +187,8 @@ class _SignupPageState extends State<SignupPage> {
 
   // Fonction pour afficher les messages
   void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -684,14 +695,13 @@ class _SignupPageState extends State<SignupPage> {
                                         text: 'Vous acceptez les ',
                                       ),
                                       TextSpan(
-                                        text: 'mentions légales',
+                                        text: 'conditions générales',
                                         style: const TextStyle(
                                           color: Color(0xFF1F5AD2),
                                           decoration: TextDecoration.underline,
                                         ),
                                         recognizer: TapGestureRecognizer()
-                                          ..onTap =
-                                              _openLegalNotice, // 👈 fonction pour ouvrir Mentions légales
+                                          ..onTap = _openLegalNotice,
                                       ),
                                       const TextSpan(text: ' et les '),
                                       TextSpan(
@@ -701,8 +711,7 @@ class _SignupPageState extends State<SignupPage> {
                                           decoration: TextDecoration.underline,
                                         ),
                                         recognizer: TapGestureRecognizer()
-                                          ..onTap =
-                                              _openPrivacyPolicy, // 👈 fonction pour ouvrir Politique
+                                          ..onTap = _openPrivacyPolicy,
                                       ),
                                       const TextSpan(
                                         text:
@@ -739,8 +748,8 @@ class _SignupPageState extends State<SignupPage> {
                                         strokeWidth: 2,
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
+                                          Colors.white,
+                                        ),
                                       ),
                                     )
                                   : const Text(
@@ -766,11 +775,10 @@ class _SignupPageState extends State<SignupPage> {
       // Bouton flottant pour le chatbot
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Navigation vers votre page de chatbot
           Navigator.pushNamed(context, '/chatbot');
         },
         backgroundColor: Colors.white,
-        foregroundColor: Color(0xFF1F5AD2),
+        foregroundColor: const Color(0xFF1F5AD2),
         child: const Icon(Icons.chat_bubble_outline, size: 28),
         elevation: 8,
       ),

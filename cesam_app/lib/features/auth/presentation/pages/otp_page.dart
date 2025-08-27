@@ -25,27 +25,40 @@ class _OtpPageState extends State<OtpPage> {
   int _resendTimer = 30;
   bool _canResend = false;
 
+  Timer? _timer; // 🔴 pour gérer le Timer
+
   @override
   void initState() {
     super.initState();
     _startResendTimer();
 
-    // Email reçu depuis le constructeur
+    // Déplacer l'envoi initial de l'OTP après un court délai
+    // pour éviter les conflits avec le build initial
     if (widget.email != null) {
-      _resendOtp();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _resendOtp();
 
-      // Afficher un éventuel message reçu
-      if (widget.message != null) {
-        _showSnackBar(widget.message!, isError: false);
-      }
+          if (widget.message != null) {
+            _showSnackBar(widget.message!, isError: false);
+          }
+        }
+      });
     }
   }
 
   void _startResendTimer() {
     _canResend = false;
     _resendTimer = 30;
+
     const oneSec = Duration(seconds: 1);
-    Timer.periodic(oneSec, (Timer timer) {
+
+    _timer = Timer.periodic(oneSec, (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
       if (_resendTimer == 0) {
         setState(() {
           timer.cancel();
@@ -69,7 +82,13 @@ class _OtpPageState extends State<OtpPage> {
 
     if (widget.email == null) {
       _showSnackBar('Email manquant. Veuillez recommencer.', isError: true);
-      Navigator.pop(context);
+
+      // Ajouter un délai avant de naviguer pour éviter les erreurs de contexte
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      });
       return;
     }
 
@@ -85,9 +104,10 @@ class _OtpPageState extends State<OtpPage> {
 
         await Future.delayed(const Duration(seconds: 1));
 
-        // Vérifier le rôle de l'utilisateur
-        final role = result['role'] ?? 'etudiant'; // récupéré depuis le backend
-        if (role == 'Administrateur') {
+        if (!mounted) return; // 🔴 sécurité après Future.delayed
+
+        final role = result['role'] ?? 'Etudiant';
+        if (role == 'Admin') {
           Navigator.pushNamedAndRemoveUntil(
             context,
             '/dashboard',
@@ -104,9 +124,11 @@ class _OtpPageState extends State<OtpPage> {
       _showSnackBar('Erreur inattendue: $e', isError: true);
       _clearOtpFields();
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -145,7 +167,7 @@ class _OtpPageState extends State<OtpPage> {
       return;
     }
 
-    if (!_canResend) return;
+    if (!_canResend && _resendTimer > 0) return;
 
     setState(() {
       isLoading = true;
@@ -155,19 +177,25 @@ class _OtpPageState extends State<OtpPage> {
     try {
       final result = await AuthService.sendOtp(widget.email!);
 
-      if (result['success']) {
-        _showSnackBar('Nouveau code envoyé !', isError: false);
-        _clearOtpFields();
-        _startResendTimer();
-      } else {
-        _showSnackBar(result['message'], isError: true);
+      if (mounted) {
+        if (result['success']) {
+          _showSnackBar('Nouveau code envoyé !', isError: false);
+          _clearOtpFields();
+          _startResendTimer();
+        } else {
+          _showSnackBar(result['message'], isError: true);
+        }
       }
     } catch (e) {
-      _showSnackBar('Erreur lors du renvoi: $e', isError: true);
+      if (mounted) {
+        _showSnackBar('Erreur lors du renvoi: $e', isError: true);
+      }
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -175,7 +203,9 @@ class _OtpPageState extends State<OtpPage> {
     for (var controller in otpControllers) {
       controller.clear();
     }
-    focusNodes[0].requestFocus();
+    if (mounted) {
+      focusNodes[0].requestFocus();
+    }
   }
 
   String _getMaskedEmail() {
@@ -195,6 +225,8 @@ class _OtpPageState extends State<OtpPage> {
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return; //  évite d'utiliser context après dispose
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -206,6 +238,8 @@ class _OtpPageState extends State<OtpPage> {
 
   @override
   void dispose() {
+    _timer?.cancel(); //  annulation du Timer
+
     for (var controller in otpControllers) {
       controller.dispose();
     }
@@ -264,15 +298,6 @@ class _OtpPageState extends State<OtpPage> {
                             color: Colors.black,
                           ),
                         ),
-                        // const SizedBox(height: 15),
-                        // Text(
-                        //   'Email brut reçu: ${widget.email ?? "aucun"}',
-                        //   style: const TextStyle(
-                        //     fontSize: 16,
-                        //     color: Colors.red,
-                        //     fontWeight: FontWeight.bold,
-                        //   ),
-                        // ),
                         Text(
                           'email: ${_getMaskedEmail()}',
                           style: const TextStyle(
@@ -321,16 +346,8 @@ class _OtpPageState extends State<OtpPage> {
                                     ).requestFocus(focusNodes[index - 1]);
                                   }
 
-                                  if (index == 3 &&
-                                      value.isNotEmpty &&
-                                      !isLoading) {
-                                    String fullOtp = otpControllers
-                                        .map((c) => c.text)
-                                        .join();
-                                    if (fullOtp.length == 4) {
-                                      _handleOtpVerification();
-                                    }
-                                  }
+                                  // SUPPRIMER LA VÉRIFICATION AUTOMATIQUE
+                                  // La vérification ne se déclenchera que via le bouton
                                 },
                               ),
                             );
