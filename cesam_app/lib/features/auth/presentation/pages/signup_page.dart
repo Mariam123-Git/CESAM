@@ -62,15 +62,15 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
-        if (roles == 'Administrateur') {
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/dashboard',
-            (route) => false,
-          );
-        } else {
-          Navigator.pushNamedAndRemoveUntil(context, '/opt', (route) => false);
-        }
+    if (roles == 'Administrateur') {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/dashboard',
+        (route) => false,
+      );
+    } else {
+      Navigator.pushNamedAndRemoveUntil(context, '/otp', (route) => false);
+    }
     setState(() {
       isLoading = true;
     });
@@ -771,10 +771,7 @@ class _SignupPageState extends State<SignupPage> {
         },
         backgroundColor: Colors.white,
         foregroundColor: Color(0xFF1F5AD2),
-        child: const Icon(
-          Icons.chat_bubble_outline,
-          size: 28,
-        ),
+        child: const Icon(Icons.chat_bubble_outline, size: 28),
         elevation: 8,
       ),
     );
